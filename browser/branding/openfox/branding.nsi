@@ -1,0 +1,16 @@
+# NSIS branding defines for OpenFox release builds.
+!define BrandFullNameInternal "OpenFox"
+!define BrandFullName         "OpenFox"
+!define CompanyName           "OpenFox Project"
+!define URLInfoAbout          "https://github.com/serverul/openfox"
+!define URLUpdateInfo         "https://github.com/serverul/openfox/releases"
+!define HelpLink              "https://github.com/serverul/openfox/issues"
+!define OFFICIAL
+!define URLStubDownloadX86 "https://github.com/serverul/openfox/releases/latest"
+!define URLStubDownloadAMD64 "https://github.com/serverul/openfox/releases/latest"
+!define URLStubDownloadAArch64 "https://github.com/serverul/openfox/releases/latest"
+!define URLManualDownload "https://github.com/serverul/openfox/releases/latest"
+!define URLSystemRequirements "https://github.com/serverul/openfox"
+!define Channel "release"
+!define CertNameDownload   "OpenFox Project"
+!define CertIssuerDownload ""

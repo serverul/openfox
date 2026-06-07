@@ -1,0 +1,234 @@
+name: OpenFox Build (ESR 140)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential nodejs python3 python3-pip python3-venv \
+          yasm libasound2-dev libcurl4-openssl-dev libdbus-1-dev \
+          libdrm-dev libfreetype6-dev libgtk-3-dev libpulse-dev \
+          libx11-xcb-dev libxt-dev mesa-common-dev uuid-dev \
+          xvfb wget unzip zip tar bzip2 xz-utils m4 ccache \
+          llvm clang lld pkg-config libpango1.0-dev \
+          libgdk-pixbuf2.0-dev libfontconfig1-dev \
+          nasm
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Apply OpenFox patches
+      run: |
+        chmod +x scripts/apply-patches.sh
+        bash scripts/apply-patches.sh
+
+    - name: Configure
+      run: |
+        cat > mozconfig << 'MOZEOF'
+        ac_add_options --enable-application=browser
+        ac_add_options --enable-optimize
+        ac_add_options --enable-release
+        ac_add_options --disable-crashreporter
+        ac_add_options --disable-updater
+        ac_add_options --disable-eme
+        ac_add_options --with-branding=browser/branding/openfox
+        mk_add_options MOZ_MAKE_FLAGS="-j$(nproc)"
+        mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openfox
+        ac_add_options --disable-tests
+        ac_add_options --disable-install-strip
+        MOZEOF
+
+    - name: Bootstrap
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        ./mach bootstrap --application-choice=browser <<< "1" || true
+
+    - name: Build
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        ./mach build
+
+    - name: Package
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        ./mach package
+
+    - name: Create tarball
+      run: |
+        cd obj-openfox/dist
+        tar -cjf openfox-linux-x86_64.tar.bz2 openfox-*/
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openfox-linux-x86_64
+        path: obj-openfox/dist/openfox-linux-x86_64.tar.bz2
+        retention-days: 30
+
+  build-windows:
+    name: Windows x86_64
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install NSIS
+      run: choco install nsis -y
+
+    - name: Apply OpenFox patches
+      run: bash scripts/apply-patches.sh
+      shell: bash
+
+    - name: Configure
+      run: |
+        cat > mozconfig << 'MOZEOF'
+        ac_add_options --enable-application=browser
+        ac_add_options --enable-optimize
+        ac_add_options --enable-release
+        ac_add_options --disable-crashreporter
+        ac_add_options --disable-updater
+        ac_add_options --disable-eme
+        ac_add_options --with-branding=browser/branding/openfox
+        mk_add_options MOZ_MAKE_FLAGS="-j2"
+        mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openfox
+        ac_add_options --disable-tests
+        ac_add_options --disable-install-strip
+        MOZEOF
+      shell: bash
+
+    - name: Bootstrap and Build
+      shell: cmd
+      run: |
+        set PATH=C:\Program Files\MozillaBuild;%PATH%
+        cd /d %GITHUB_WORKSPACE%
+        python mach bootstrap --application-choice browser || true
+        python mach build
+
+    - name: Package
+      shell: cmd
+      run: |
+        cd /d %GITHUB_WORKSPACE%
+        python mach package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openfox-windows-x86_64
+        path: obj-openfox/dist/openfox*.exe
+        retention-days: 30
+
+  build-macos:
+    name: macOS x86_64
+    runs-on: macos-13
+    timeout-minutes: 360
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install dependencies
+      run: |
+        brew install autoconf@2.13 gawk ccache llvm yasm nasm
+
+    - name: Apply OpenFox patches
+      run: |
+        chmod +x scripts/apply-patches.sh
+        bash scripts/apply-patches.sh
+
+    - name: Configure
+      run: |
+        cat > mozconfig << 'MOZEOF'
+        ac_add_options --enable-application=browser
+        ac_add_options --enable-optimize
+        ac_add_options --enable-release
+        ac_add_options --disable-crashreporter
+        ac_add_options --disable-updater
+        ac_add_options --disable-eme
+        ac_add_options --with-branding=browser/branding/openfox
+        mk_add_options MOZ_MAKE_FLAGS="-j3"
+        mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openfox
+        ac_add_options --disable-tests
+        ac_add_options --disable-install-strip
+        mk_add_options AUTOCONF=/usr/local/opt/autoconf@2.13/bin/autoconf213
+        MOZEOF
+
+    - name: Build
+      run: |
+        export PATH="$HOME/.cargo/bin:/usr/local/opt/llvm/bin:$PATH"
+        ./mach build
+
+    - name: Package
+      run: |
+        export PATH="$HOME/.cargo/bin:/usr/local/opt/llvm/bin:$PATH"
+        ./mach package
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: openfox-macos-x86_64
+        path: obj-openfox/dist/openfox*.dmg
+        retention-days: 30
+
+  release:
+    name: Publish Release
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Upload to release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/openfox-linux-x86_64/*
+          artifacts/openfox-windows-x86_64/*
+          artifacts/openfox-macos-x86_64/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

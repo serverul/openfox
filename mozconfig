@@ -1,0 +1,14 @@
+# OpenFox — mozconfig
+# Privacy-first browser based on Firefox ESR 140
+
+ac_add_options --enable-application=browser
+ac_add_options --enable-optimize
+ac_add_options --enable-release
+ac_add_options --disable-crashreporter
+ac_add_options --disable-updater
+ac_add_options --disable-eme
+ac_add_options --with-branding=browser/branding/openfox
+mk_add_options MOZ_MAKE_FLAGS="-j2"
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-openfox
+ac_add_options --disable-tests
+ac_add_options --disable-install-strip
