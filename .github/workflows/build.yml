@@ -97,6 +97,12 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install MozillaBuild
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri "https://ftp.mozilla.org/pub/mozilla.org/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe" -OutFile "MozillaBuildSetup.exe"
+          Start-Process -FilePath ".\MozillaBuildSetup.exe" -ArgumentList "/S" -Wait
+
       - name: Apply patches
         shell: bash
         run: bash scripts/apply-patches.sh
@@ -121,7 +127,8 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          python mach --no-interactive build
+          set MOZILLABUILD=C:\mozilla-build
+          call "C:\mozilla-build\start-shell.bat" -c "cd /d %GITHUB_WORKSPACE% && python mach --no-interactive build"
 
       - name: Package
         if: success()
