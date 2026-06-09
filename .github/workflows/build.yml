@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Install dependencies
         run: |
@@ -66,13 +69,22 @@ jobs:
           export CXX=clang++
           EOF
 
+      - name: Configure
+        run: |
+          echo "🔧 Running ./mach configure..."
+          ./mach --no-interactive configure 2>&1 | tail -50
+
       - name: Build
         run: |
-          ./mach --no-interactive build
+          echo "🔨 Starting build at $(date)..."
+          ./mach --no-interactive build 2>&1 | tail -100
+          echo "✅ Build finished at $(date)"
 
       - name: Package
         if: success()
-        run: ./mach package
+        run: |
+          echo "📦 Packaging..."
+          ./mach package 2>&1 | tail -50
 
       - name: Upload artifact
         if: success()
@@ -80,6 +92,7 @@ jobs:
         with:
           name: openfox-linux-x86_64
           path: obj-openfox/dist/openfox*.tar.bz2
+          retention-days: 7
 
   build-windows:
     name: 🪟 Windows x86_64
@@ -89,6 +102,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -101,12 +117,18 @@ jobs:
       - name: Install MozillaBuild
         shell: powershell
         run: |
-          Invoke-WebRequest -Uri "https://ftp.mozilla.org/pub/mozilla.org/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe" -OutFile "MozillaBuildSetup.exe"
-          Start-Process -FilePath ".\MozillaBuildSetup.exe" -ArgumentList "/S" -Wait
+          Write-Host "📥 Downloading MozillaBuild..."
+          Invoke-WebRequest -Uri "https://ftp.mozilla.org/pub/mozilla.org/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe" -OutFile "MozillaBuildSetup.exe" -UseBasicParsing
+          Write-Host "📦 Installing MozillaBuild silently..."
+          Start-Process -FilePath ".\MozillaBuildSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow
+          Write-Host "✅ MozillaBuild installed"
+          Get-ChildItem "C:\mozilla-build" | Select-Object -First 10
 
       - name: Apply patches
         shell: bash
-        run: bash scripts/apply-patches.sh
+        run: |
+          export PATH="/c/mozilla-build/python:$PATH"
+          bash scripts/apply-patches.sh
 
       - name: Write mozconfig
         shell: bash
@@ -144,6 +166,7 @@ jobs:
         with:
           name: openfox-windows-x86_64
           path: obj-openfox/dist/openfox*.exe
+          retention-days: 7
 
   build-macos:
     name: 🍎 macOS x86_64
@@ -153,6 +176,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -188,16 +214,25 @@ jobs:
           export CXX=clang++
           EOF
 
+      - name: Configure
+        run: |
+          echo "🔧 Running ./mach configure..."
+          export PATH="/usr/local/opt/llvm/bin:$HOME/.cargo/bin:$PATH"
+          ./mach --no-interactive configure 2>&1 | tail -50
+
       - name: Build
         run: |
+          echo "🔨 Starting build at $(date)..."
           export PATH="/usr/local/opt/llvm/bin:$HOME/.cargo/bin:$PATH"
-          ./mach --no-interactive build
+          ./mach --no-interactive build 2>&1 | tail -100
+          echo "✅ Build finished at $(date)"
 
       - name: Package
         if: success()
         run: |
+          echo "📦 Packaging..."
           export PATH="/usr/local/opt/llvm/bin:$HOME/.cargo/bin:$PATH"
-          ./mach package
+          ./mach package 2>&1 | tail -50
 
       - name: Upload artifact
         if: success()
@@ -205,6 +240,7 @@ jobs:
         with:
           name: openfox-macos-x86_64
           path: obj-openfox/dist/openfox*.dmg
+          retention-days: 7
 
   release:
     name: 📦 Publish Release
