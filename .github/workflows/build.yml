@@ -134,7 +134,9 @@ jobs:
       - name: Package
         if: success()
         shell: cmd
-        run: python mach package
+        run: |
+          set MOZILLABUILD=C:\mozilla-build
+          call "C:\mozilla-build\start-shell.bat" -c "cd /d %GITHUB_WORKSPACE% && python mach --no-interactive package"
 
       - name: Upload artifact
         if: success()
