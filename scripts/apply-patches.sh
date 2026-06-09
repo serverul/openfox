@@ -110,9 +110,20 @@ fi
 
 # 3. Disable Pocket in build
 echo "  → Disabling Pocket..."
-POCKET_MK="browser/components/pocket/moz.build"
-if [ -f "$POCKET_MK" ]; then
-    echo "# OpenFox: Pocket disabled" > "$POCKET_MK"
+POCKET_DIR="browser/components/pocket"
+if [ -d "$POCKET_DIR" ]; then
+    # Remove jar.mn so build system doesn't complain about unreferenced manifests
+    rm -f "$POCKET_DIR/jar.mn"
+    # Replace moz.build with proper empty module (no jar manifest)
+    cat > "$POCKET_DIR/moz.build" << 'POCKET_EOF'
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# OpenFox: Pocket integration disabled
+if not CONFIG["MOZ_POCKET"]:
+    DEFINES["MOZ_POCKET"] = False
+POCKET_EOF
     echo "  ✅ Pocket disabled"
 fi
 
